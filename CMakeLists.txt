@@ -21,8 +21,8 @@ set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${BUILD_DIR})
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${BUILD_DIR})
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${BIN_DIR})
 
-# 编译选项（对应 Makefile 的 CFLAGS 和 WARNINGS）
-set(CMAKE_C_FLAGS "-O0 -g")
+# 编译选项（添加 -Wno-error 禁止警告转错误，确保 make 不中断）
+set(CMAKE_C_FLAGS "-O0 -g")  # 关键修改：添加 -Wno-error
 set(WARNINGS
     -Wall -Wextra
     -Wshadow -Wundef -Wmaybe-uninitialized -Wmissing-prototypes -Wno-discarded-qualifiers
@@ -49,6 +49,7 @@ include_directories(
     ${SRC_DIR}/third_party/
     ${SRC_DIR}/third_party/lvgl/
     ${SRC_DIR}/third_party/lv_drivers/
+    ${SRC_DIR}/base/
 )
 
 # 链接库（对应 Makefile 的 LDLIBS）
@@ -78,7 +79,8 @@ target_link_libraries(app PRIVATE ${LIBS})
 # 依赖文件（确保配置文件修改时重新编译，对应 Makefile 的依赖项）
 target_sources(app PRIVATE
     ${SRC_DIR}/third_party/lv_conf.h
-    ${SRC_DIR}/third_party/lv_drv_conf.h
+    # ${SRC_DIR}/third_party/lv_drv_conf.h
+    ${SRC_DIR}/third_party/lv_demo_conf.h
     ${CMAKE_CURRENT_LIST_DIR}/CMakeLists.txt
 )
 

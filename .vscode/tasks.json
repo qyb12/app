@@ -5,9 +5,7 @@
             "label": "cmake",
             "type": "shell",
             "command": "cmake",
-            "args": [
-                "../"
-            ],
+            "args": [".."],
             "options": {
                 "cwd": "${workspaceFolder}/build"
             },            
@@ -16,14 +14,15 @@
             "label": "make",
             "type": "shell",
             "command": "make",
-            "args": [],
+            "args": ["-j$(nproc)"],
             "options": {
                 "cwd": "${workspaceFolder}/build"
-            }, 
+            }
         },
         {
             "label": "build",
-            "dependsOn":["cmake", "make"]
-        },
+            "dependsOn": ["cmake", "make"],
+            "dependsOrder": "sequence", // 关键：按顺序执行cmake→make
+        }
     ],
 }
