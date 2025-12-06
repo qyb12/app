@@ -17,6 +17,7 @@
 #include "lvgl/lvgl.h"
 #include "lvgl/examples/lv_examples.h"
 #include "lvgl/demos/lv_demos.h"
+#include "ui_manager/uiManager.h"
 
 #if USE_SDL
   #define SDL_MAIN_HANDLED /*To fix SDL's "undefined reference to WinMain" issue*/
@@ -55,8 +56,8 @@ int main(int argc, char **argv) {
   hal_init();
 
   // lv_demo_widgets();
-
-  
+  UiManager::GetInstance().createAllPage();
+  UiManager::GetInstance().initPage();
 
   while(1) {
     /* Periodically call the lv_task handler.
