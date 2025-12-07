@@ -5,3 +5,11 @@ EventManager& EventManager::GetInstance() {
     static EventManager instance;
     return instance;
 }
+
+void EventManager::runTasks() {
+    auto tasks = asyncTasks_;
+    asyncTasks_.clear();
+    for (const auto& task : tasks) {
+        task.callback(task.eventObj);
+    }
+}

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "lvgl/lvgl.h"
+#include "event.h"
 
 #include <functional>
 
@@ -17,6 +18,8 @@ public:
     };
     int mode = PERMANENT_MODE;
 
-    using conditionFunc = std::function<bool (const std::string &, int)>; 
+    using conditionFunc = std::function<bool ()>; 
     conditionFunc condition;
+    // 假设 eventID 存储事件类型的哈希值
+    std::vector<size_t> eventIds;
 };

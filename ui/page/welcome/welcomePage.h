@@ -31,5 +31,6 @@ private:
     lv_obj_t *_self = nullptr;
     lv_obj_t *_parent = nullptr;
     // 按钮
-    lv_obj_t *btn = nullptr;
+    lv_obj_t *main_btn = nullptr;
+    lv_obj_t *sys_btn = nullptr;
 };

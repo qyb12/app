@@ -5,13 +5,14 @@
 
 using namespace std;
 
-REGISTER_PAGE(StatusBar, MainPage);
+REGISTER_PAGE(StatusBar, );
 
 StatusBar::StatusBar(UiObject *parant) : UiObject() {
     mode = CONDITION_MODE;
-    // condition = [](const std::string &pageName, int id) -> bool {
-    //     return (pageName == "MainPage" && id == UiManager::PageEventId::DISPLAYED);
-    // };
+    eventIds.push_back(typeid(pageEvent).hash_code());
+    condition = []() -> bool {
+        return UiManager::GetInstance().isVisible("MainPage");
+    };
 }
 
 StatusBar::~StatusBar() {
@@ -34,11 +35,29 @@ void StatusBar::uiInit() {
     lv_obj_set_size(_self, LV_PCT(100), LV_PCT(10));
     lv_obj_add_style(_self, &style_bg, LV_STATE_DEFAULT);
     lv_obj_align(_self, LV_ALIGN_TOP_MID, 0, 0);
+
     btn = lv_btn_create(_self);
     lv_obj_set_size(btn, LV_PCT(10), LV_PCT(100));
-    lv_obj_align(btn, LV_ALIGN_TOP_LEFT, 0, 0);
+    lv_obj_align(btn, LV_ALIGN_LEFT_MID, 0, 0);
     lv_obj_t *label = lv_label_create(btn);
     lv_label_set_text(label, "back");
+    lv_obj_align(label, LV_ALIGN_CENTER, 0, 0);
+    
+    label = lv_label_create(_self);
+    lv_label_set_text(label, "status_start_123456789_stop");
+    lv_obj_align_to(label, btn, LV_ALIGN_OUT_RIGHT_MID, 10, 0);
+
+    for (int i=0; i<5; i++) {
+        lv_obj_t *temp_btn = lv_btn_create(_self);
+        lv_obj_set_size(temp_btn, LV_PCT(10), LV_PCT(100));
+        lv_obj_align_to(temp_btn, label, LV_ALIGN_OUT_RIGHT_MID, i*150+10, 0);
+    }
+
+    set_btn = lv_btn_create(_self);
+    lv_obj_set_size(set_btn, LV_PCT(10), LV_PCT(100));
+    lv_obj_align(set_btn, LV_ALIGN_RIGHT_MID, 0, 0);
+    label = lv_label_create(set_btn);
+    lv_label_set_text(label, "settings");
     lv_obj_align(label, LV_ALIGN_CENTER, 0, 0);
 }
 
@@ -49,6 +68,9 @@ void StatusBar::uiInit() {
 void StatusBar::logicInit() { 
     lv_obj_add_event_cb(btn, [](lv_event_t *e) {
         UiManager::GetInstance().navigationToPage("WelcomePage");
+    }, LV_EVENT_CLICKED, NULL);
+    lv_obj_add_event_cb(set_btn, [](lv_event_t *e) {
+        UiManager::GetInstance().navigationToPage("SettingsPage");
     }, LV_EVENT_CLICKED, NULL);
 }
 
@@ -61,7 +83,6 @@ lv_obj_t *StatusBar::Init(lv_obj_t *parent) {
 }
 
 void StatusBar::Deinit(lv_obj_t *obj) {
-    cout<<"StatusBar Deinit"<<endl;
     lv_style_reset(&style_bg);
     lv_obj_del(obj);
     _parent = NULL;

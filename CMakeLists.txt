@@ -49,6 +49,8 @@ add_definitions(-DSIMULATOR=1 -DLV_BUILD_TEST=0)
 set(INCLUDE_DIRS    # 定义所有头文件目录
     ${SRC_DIR}/third_party/
     ${SRC_DIR}/third_party/lvgl/
+    ${SRC_DIR}/third_party/lvgl/src
+    ${SRC_DIR}/third_party/lvgl/src/extra
     ${SRC_DIR}/third_party/lv_drivers/
     ${SRC_DIR}/base/
     ${SRC_DIR}/module/

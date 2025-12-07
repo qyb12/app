@@ -2,10 +2,10 @@
 
 #include "uiObject.h"
 
-class StatusBar : public UiObject {
+class SettingsPage : public UiObject {
 public:
-    StatusBar(UiObject *parant);
-    ~StatusBar();
+    SettingsPage(UiObject *parant);
+    ~SettingsPage();
     lv_obj_t *Init(lv_obj_t *) override;
     void Deinit(lv_obj_t *) override;
     
@@ -29,6 +29,4 @@ private:
     lv_style_t style_bg;
     lv_obj_t *_self = nullptr;
     lv_obj_t *_parent = nullptr;
-    lv_obj_t *btn = nullptr;
-    lv_obj_t *set_btn = nullptr;
 };

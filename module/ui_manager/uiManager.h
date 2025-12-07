@@ -8,14 +8,6 @@
 #include <unordered_map>
 #include <vector>
 
-/**
- * @brief 页面管理的事件
- * 
- */
-struct pageEvent : public Event<const std::string &, int> {
-    using Event::Event; // 继承构造函数（C++11及以上）
-};
-
 class UiManager {
 public:
     enum PageEventId {
@@ -72,12 +64,51 @@ public:
      */
     void navigationToPage(const std::string &);
 
+    bool isVisible(const std::string &);
 private:
     /* 
      * @brief 开启启动时候页面创建顺序和要启动的页面是哪个(里面的成员就是页面的类名)
      */
     std::string firstPage = "WelcomePage";
     std::vector<struct SubclassMeta *> pages;
+
+private:
+    void initPage(UiManager::SubclassMeta &);
+    void deinitPage(UiManager::SubclassMeta &);
+
+    void createPage(UiManager::SubclassMeta &);
+    void deletePage(UiManager::SubclassMeta &);
+    /**
+     * @brief 把条件结点根据需要监听哪些事件全部监听
+     * @param node 要进行监听事件的条件结点
+     */
+    void conditionRegister(UiManager::SubclassMeta &);
+    void conditionrUnregister(UiManager::SubclassMeta &node);
+    /**
+     * @brief 遍历对象森林，对每个对象应用指定函数(先遍历根)
+     * @param node 起始对象
+     * @param func 要应用的函数，接收 UiManager::SubclassMeta& 类型参数
+     */
+    void foreachTree(UiManager::SubclassMeta &, std::function<void(UiManager::SubclassMeta&)>);
+    /**
+     * @brief 遍历对象森林，对每个对象应用指定函数(后遍历根)
+     * @param node 起始对象
+     * @param func 要应用的函数，接收 UiManager::SubclassMeta& 类型参数
+     */
+    void foreachTreeBack(UiManager::SubclassMeta &, std::function<void(UiManager::SubclassMeta&)>);
+    void foreachTreeOrder(UiManager::SubclassMeta &, std::function<void(UiManager::SubclassMeta&)>);
+    /**
+     * @brief 从对象森林中查找指定名称的对象
+     * @param node 起始对象
+     * @param name 要查找的对象名称
+     * @return UiManager::SubclassMeta* 找到的对象指针，若未找到则为nullptr
+     */
+    UiManager::SubclassMeta *findFromForest(UiManager::SubclassMeta &, const std::string &);
+    /* 
+     * @brief 获取静态注册表引用
+     * @return std::unordered_map<std::string, UiManager::SubclassMeta>& 静态注册表引用
+     */
+    std::unordered_map<std::string, UiManager::SubclassMeta>& getTable();
 
 public:
     /*
@@ -98,30 +129,6 @@ public:
     UiManager& operator=(UiManager&&) = delete;
 
 private:
-    /**
-     * @brief 遍历对象森林，对每个对象应用指定函数(先遍历根)
-     * @param node 起始对象
-     * @param func 要应用的函数，接收 UiManager::SubclassMeta& 类型参数
-     */
-    void foreachTree(UiManager::SubclassMeta &node, std::function<void(UiManager::SubclassMeta&)> func);
-    /**
-     * @brief 遍历对象森林，对每个对象应用指定函数(后遍历根)
-     * @param node 起始对象
-     * @param func 要应用的函数，接收 UiManager::SubclassMeta& 类型参数
-     */
-    void foreachTreeBack(UiManager::SubclassMeta &node, std::function<void(UiManager::SubclassMeta&)> func);
-    /**
-     * @brief 从对象森林中查找指定名称的对象
-     * @param node 起始对象
-     * @param name 要查找的对象名称
-     * @return UiManager::SubclassMeta* 找到的对象指针，若未找到则为nullptr
-     */
-    UiManager::SubclassMeta *findFromForest(UiManager::SubclassMeta &, const std::string &);
-    /* 
-     * @brief 获取静态注册表引用
-     * @return std::unordered_map<std::string, UiManager::SubclassMeta>& 静态注册表引用
-     */
-    std::unordered_map<std::string, UiManager::SubclassMeta>& getTable();
     /* 
      * @brief 构造函数（私有，确保单例唯一性）
      */
