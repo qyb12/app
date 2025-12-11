@@ -9,6 +9,14 @@ REGISTER_PAGE(SettingsPage, );
 
 SettingsPage::SettingsPage(UiObject *parant) : UiObject() {
     mode = CONDITION_MODE;
+    // hiddenEventIds.push_back(typeid(pageEvent).hash_code());
+    hiddenEventIds.push_back(typeid(pagePressedEvent).hash_code());
+    hiddenCondition = []() -> bool {
+        if (!UiManager::GetInstance().isVisible("MainPage") || !UiManager::GetInstance().isPressed("SettingsPage")) {
+            return true;
+        }
+        return false;
+    };
 }
 
 SettingsPage::~SettingsPage() {
@@ -42,6 +50,7 @@ void SettingsPage::logicInit() {
 }
 
 lv_obj_t *SettingsPage::Init(lv_obj_t *parent) {
+    static int i = 0;
     _parent = parent;
     styleInit();
     uiInit();

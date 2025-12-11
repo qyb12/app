@@ -23,3 +23,11 @@ struct Event : public BaseEvent {
 struct pageEvent : public Event<> {
     using Event::Event; // 继承构造函数（C++11及以上）
 };
+
+/**
+ * @brief 页面管理的事件(鼠标的点击到哪个页面)
+ * 
+ */
+struct pagePressedEvent : public Event<> {
+    using Event::Event; // 继承构造函数（C++11及以上）
+};

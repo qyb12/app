@@ -7,6 +7,11 @@ EventManager& EventManager::GetInstance() {
 }
 
 void EventManager::runTasks() {
+    if (asyncTasks_.size() == 0) {
+        return;
+    }
+    static int i = 0;
+    printf("runTasks asyncTasks_ = %d, i = %d\n", asyncTasks_.size(), i++);
     auto tasks = asyncTasks_;
     asyncTasks_.clear();
     for (const auto& task : tasks) {

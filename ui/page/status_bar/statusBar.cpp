@@ -9,9 +9,13 @@ REGISTER_PAGE(StatusBar, );
 
 StatusBar::StatusBar(UiObject *parant) : UiObject() {
     mode = CONDITION_MODE;
-    eventIds.push_back(typeid(pageEvent).hash_code());
-    condition = []() -> bool {
+    displayEventIds.push_back(typeid(pageEvent).hash_code());
+    displayCondition = []() -> bool {
         return UiManager::GetInstance().isVisible("MainPage");
+    };
+    hiddenEventIds.push_back(typeid(pageEvent).hash_code());
+    hiddenCondition = []() -> bool {
+        return !UiManager::GetInstance().isVisible("MainPage");
     };
 }
 

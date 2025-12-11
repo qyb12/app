@@ -42,6 +42,8 @@ public:
     // 注册监听器：事件类型ID + 回调函数
     template <typename EventType, typename ObjType, typename Func>
     void RegisterListener(ObjType &obj, Func&& func) {
+        static int i = 0;
+        // printf("RegisterListener i = %d\n", i++);
         std::lock_guard<std::mutex> lock(mtx_);
         // 生成复合键：类型哈希 + 对象地址
         CallbackKey key = {
@@ -63,7 +65,10 @@ public:
     template <typename EventType, typename ObjType>
     void UnregisterAllListeners(ObjType &obj) {
         std::lock_guard<std::mutex> lock(mtx_);
-        CallbackKey key = {typeid(EventType).hash_code(), static_cast<void*>(&obj)};
+        CallbackKey key = {
+            typeid(EventType).hash_code(), 
+            static_cast<void*>(&obj)
+        };
         callbacks_.erase(key);
     }
 

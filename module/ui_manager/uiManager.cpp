@@ -5,6 +5,8 @@
 
 using namespace std;
 
+lv_indev_t *UiManager::mouse_indev = NULL; // 鼠标输入设备
+
 UiManager& UiManager::GetInstance() {  // C++11及以上：局部静态变量初始化线程安全
     static UiManager instance;
     return instance;
@@ -16,7 +18,13 @@ std::unordered_map<std::string, UiManager::SubclassMeta>& UiManager::getTable() 
     return registry;
 }
 
-// 扩展注册接口：新增parentName参数
+/**
+ * @brief 注册一个页面类
+ * @param className 页面类名
+ * @param parentName 父类名（空字符串表示无父类）
+ * @param func 创建函数指针，用于创建页面实例
+ * @return 无返回值
+ */
 void UiManager::pageRegister(const std::string& className, const std::string& parentName, UiManager::CreateFunc func) {
     auto& registry = getTable();
     if (registry.find(className) != registry.end()) {
@@ -30,6 +38,10 @@ void UiManager::pageRegister(const std::string& className, const std::string& pa
     // std::cout<<"registered successfully class name ="<<className<<"parent name = "<<parentName<<std::endl;
 }
 
+/**
+ * @brief 批量创建所有页面实例
+ * @return 无返回值
+ */
 void UiManager::createAllPage() {
     // 构建整个对象森林
     auto& registry = getTable();
@@ -76,6 +88,9 @@ void UiManager::createAllPage() {
             }
         });
     }
+    // 初始化第一个对象树
+    navigationToPage(firstPage);
+    //进行鼠标事件回调绑定
 }
 
 UiManager::SubclassMeta *UiManager::findFromForest(UiManager::SubclassMeta &node, const std::string &name) {
@@ -119,13 +134,89 @@ void UiManager::foreachTreeOrder(UiManager::SubclassMeta &node, std::function<vo
     }
 }
 
+void UiManager::foreachTree1(UiManager::SubclassMeta &node, std::function<void(UiManager::SubclassMeta&)> func) {
+    func(node);
+    for (auto& child : node.children) {
+        if (node.uiSelf->mode == UiObject::UNIQUE_MODE) {   // 如果是unique模式直接返回不初始化子控件
+            continue;
+        } else if (node.uiSelf->mode == UiObject::CONDITION_MODE) { // 如果是condition模式，只注册条件函数，也不初始化
+            conditionRegister(node);
+            continue;
+        } else if (node.uiSelf->mode == UiObject::PERMANENT_MODE) { // 如果是permanent模式，递归遍历子控件
+            foreachTree1(*child, func);
+        }
+    }
+}
+
+/**
+ * 手动判断点是否在 lv_area_t 区域内
+ * @param area 目标区域
+ * @param x 点的x坐标
+ * @param y 点的y坐标
+ * @return true=在区域内，false=不在
+ */
+bool UiManager::area_is_point_in(const lv_area_t &area, lv_coord_t &x, lv_coord_t &y) {
+    // 统一区域坐标顺序（处理 x1 > x2 或 y1 > y2 的情况）
+    int32_t x_min = LV_MIN(area.x1, area.x2);
+    int32_t x_max = LV_MAX(area.x1, area.x2);
+    int32_t y_min = LV_MIN(area.y1, area.y2);
+    int32_t y_max = LV_MAX(area.y1, area.y2);
+
+    // 核心判断：点的x在[x_min, x_max]且y在[y_min, y_max]
+    return (x >= x_min && x <= x_max) && (y >= y_min && y <= y_max);
+}
+
+/**
+ * 定时器回调：轮询鼠标按下状态 + 坐标判断
+ * @param timer 定时器对象
+ */
+void UiManager::mouse_pressed_event_cb(struct _lv_indev_drv_t *, uint8_t state) {
+    if (state == LV_INDEV_STATE_PR && mouse_indev) {
+        for (auto& page : UiManager::GetInstance().pressedPagesVector) {
+            if (page->lvSelf == nullptr) {
+                continue;
+            }
+            lv_area_t coords;
+            lv_obj_get_coords(page->lvSelf, &coords);
+            if (UiManager::area_is_point_in(coords, mouse_indev->proc.types.pointer.act_point.x, mouse_indev->proc.types.pointer.act_point.y)) {
+                UiManager::GetInstance().pressedPagesMap[page->selfName] = true;
+            } else {
+                UiManager::GetInstance().pressedPagesMap[page->selfName] = false;
+            }
+        }
+        EventManager::GetInstance().PublishEvent<pagePressedEvent>();
+        // printf("mouse_pressed_event_cb %d, %d\n", mouse_indev->proc.types.pointer.act_point.x, mouse_indev->proc.types.pointer.act_point.y);
+    }
+}
+
 void UiManager::initPage() {    // 开机初始化GUI页面
+    for (auto& page : pages) {  // 递归遍历森林
+        if (page->uiSelf->mode == UiObject::UNIQUE_MODE) {
+            continue;
+        } else if (page->uiSelf->mode == UiObject::CONDITION_MODE) {
+            conditionRegister(*page);
+            continue;
+        } else if (page->uiSelf->mode == UiObject::PERMANENT_MODE) {
+            foreachTree1(*page, [&](UiManager::SubclassMeta& node) {  // 遍历树创建
+                initPage(node);
+            });
+        }
+    }
+
+    mouse_indev = lv_indev_get_next(NULL);
+    while(mouse_indev) {
+        if(lv_indev_get_type(mouse_indev) == LV_INDEV_TYPE_POINTER) {
+            break;
+        }
+        mouse_indev = lv_indev_get_next(mouse_indev);
+    }
+    mouse_indev->driver->feedback_cb = mouse_pressed_event_cb;
+
     navigationToPage(firstPage);
 }
 
 void UiManager::navigationToPage(const std::string &pageName) {
-    // 正确写法：先获取 map 引用，再操作
-    auto& registry = getTable(); // 仅调用一次，复用引用
+    auto& registry = getTable();    // 仅调用一次，复用引用
     auto it = registry.find(pageName);
     if (it == registry.end()) { // 如果没找到直接退出
         return;
@@ -147,33 +238,30 @@ void UiManager::navigationToPage(const std::string &pageName) {
     } else {
         tempVector = &pages;
     }
-    // 隐藏和显示自己与兄弟结点
-    for (auto& bro : *tempVector) { // 把全部兄弟都遍历一遍(该关闭的关闭)
-        if (it->second.uiSelf->mode == UiObject::UNIQUE_MODE) {
-            if (bro->uiSelf != it->second.uiSelf && bro->lvSelf && bro->uiSelf->mode == UiObject::UNIQUE_MODE) {
+    if (it->second.uiSelf->mode == UiObject::UNIQUE_MODE) {
+        for (auto& bro : *tempVector) {
+            if (bro->uiSelf != it->second.uiSelf && bro->uiSelf->mode == UiObject::UNIQUE_MODE && bro->lvSelf) {
                 foreachTreeBack(*bro, [&](UiManager::SubclassMeta& node) {  // 遍历树
                     deletePage(node);
                 });
-            } else if (bro->uiSelf == it->second.uiSelf && bro->lvSelf == nullptr) { // 把自己和全部子控件显示出来
-                initPage(*bro); // 无条件显示自己
-                for (auto& child : bro->children) {
-                    foreachTreeOrder(*child, [&](UiManager::SubclassMeta& node) {  // 遍历树创建
-                        createPage(node);
-                    });
-                }
-            } else if (bro->uiSelf != it->second.uiSelf && bro->lvSelf == nullptr && bro->uiSelf->mode == UiObject::CONDITION_MODE) {
-                foreachTreeOrder(*bro, [&](UiManager::SubclassMeta& node) {  // 遍历树创建
-                    createPage(node);
-                });
-            }
-        } else {
-            initPage(it->second); // 无条件只显示自己
-            for (auto& child : it->second.children) {
-                foreachTreeOrder(*child, [&](UiManager::SubclassMeta& node) {  // 遍历树创建
-                    createPage(node);
+            } else if (bro->uiSelf == it->second.uiSelf && it->second.lvSelf == nullptr) {
+                foreachTree1(it->second, [&](UiManager::SubclassMeta& node) {  // 遍历树创建
+                    initPage(node);
                 });
             }
         }
+    } else if (it->second.uiSelf->mode == UiObject::PERMANENT_MODE && it->second.lvSelf == nullptr) {
+        foreachTree1(it->second, [&](UiManager::SubclassMeta& node) {  // 遍历树创建
+            initPage(node);
+        });
+    } else if (it->second.uiSelf->mode == UiObject::CONDITION_MODE && it->second.lvSelf == nullptr) {
+        if (pressedPagesMap.find(it->second.selfName) != pressedPagesMap.end()) {
+            pressedPagesMap[it->second.selfName] = true;
+        }
+        initPage(it->second); // 无条件显示自己
+        foreachTree1(it->second, [&](UiManager::SubclassMeta& node) {  // 遍历树创建
+            initPage(node);
+        });
     }
 }
 
@@ -182,39 +270,88 @@ bool UiManager::isVisible(const std::string &pageName) {
     return it->second.lvSelf;
 }
 
+bool UiManager::isPressed(const std::string &pageName) {
+    auto it = pressedPagesMap.find(pageName);
+    if (it != pressedPagesMap.end()) {
+        return it->second;
+    }
+    return false;
+}
+
 void UiManager::conditionRegister(UiManager::SubclassMeta &node) {
-    for (auto id : node.uiSelf->eventIds) {
-        // 仅处理 pageEvent 类型（可扩展 else if 支持其他事件）
-        if (id == typeid(pageEvent).hash_code()) {
-            EventManager::GetInstance().RegisterListener<pageEvent>(EventManager::GetInstance(), [&]() {
-                if (node.uiSelf->condition()) {
-                    initPage(node);
-                } else {
-                    deinitPage(node);
+    if (node.uiSelf->displayCondition) {
+        for (auto id : node.uiSelf->displayEventIds) {
+            if (id == typeid(pageEvent).hash_code()) {
+                printf("displayCondition pageEvent node = %s\n", node.selfName.c_str());
+                EventManager::GetInstance().RegisterListener<pageEvent>(node.uiSelf, [&]() {
+                    if (node.lvSelf == nullptr && node.uiSelf->displayCondition()) {
+                        initPage(node); // 无条件显示自己
+                        foreachTree1(node, [&](UiManager::SubclassMeta& node) {  // 遍历树创建
+                            initPage(node);
+                        });
+                    }
+                });
+            }
+        }
+    }
+    if (node.uiSelf->hiddenCondition) {
+        for (auto id : node.uiSelf->hiddenEventIds) {
+            if (id == typeid(pageEvent).hash_code()) {
+                printf("hiddenCondition pageEvent node = %s\n", node.selfName.c_str());
+                EventManager::GetInstance().RegisterListener<pageEvent>(node.uiSelf, [&]() {
+                    if (node.lvSelf && node.uiSelf->hiddenCondition()) {
+                        foreachTreeBack(node, [&](UiManager::SubclassMeta& node) {  // 遍历树
+                            deletePage(node);
+                        });
+                        conditionRegister(node);
+                    }
+                });
+            } else if (id == typeid(pagePressedEvent).hash_code()) {
+                printf("hiddenCondition pagePressedEvent node = %s\n", node.selfName.c_str());
+                if (pressedPagesMap.find(node.selfName) == pressedPagesMap.end()) {
+                    pressedPagesVector.push_back(&node);
+                    pressedPagesMap[node.selfName] = false;
                 }
-            });
+                EventManager::GetInstance().RegisterListener<pagePressedEvent>(node.uiSelf, [&]() {
+                    if (node.lvSelf && node.uiSelf->hiddenCondition()) {
+                        foreachTreeBack(node, [&](UiManager::SubclassMeta& node) {  // 遍历树
+                            deletePage(node);
+                        });
+                        conditionRegister(node);
+                    }
+                });
+            }
         }
     }
 }
 
 void UiManager::conditionrUnregister(UiManager::SubclassMeta &node) {
-    for (auto id : node.uiSelf->eventIds) {
-        // 仅处理 pageEvent 类型（可扩展 else if 支持其他事件）
+    for (auto id : node.uiSelf->displayEventIds) {
+        if (id == typeid(pageEvent).hash_code()) {
+            printf("UnregisterAllListeners node %s.\n", node.selfName.c_str());
+            EventManager::GetInstance().UnregisterAllListeners<pageEvent>(node.uiSelf);
+        }
+    }
+    for (auto id : node.uiSelf->hiddenEventIds) {
         if (id == typeid(pageEvent).hash_code()) {
             EventManager::GetInstance().UnregisterAllListeners<pageEvent>(node.uiSelf);
+        } else if (id == typeid(pagePressedEvent).hash_code()) {
+            EventManager::GetInstance().UnregisterAllListeners<pagePressedEvent>(node.uiSelf);
         }
     }
 }
 
 void UiManager::createPage(UiManager::SubclassMeta &node) {
     if (node.uiSelf && node.lvSelf == nullptr) {
-        if (node.uiSelf->mode == UiObject::PERMANENT_MODE) {
+        if (node.uiSelf->mode == UiObject::PERMANENT_MODE) {    // 如果页面是常显，无条件显示
             initPage(node);
-        } else if (node.uiSelf->mode == UiObject::CONDITION_MODE && node.uiSelf->condition != nullptr) {
-            if (node.uiSelf->condition()) {
+        } else if (node.uiSelf->mode == UiObject::CONDITION_MODE) {
+            if (node.uiSelf->displayCondition && node.uiSelf->displayCondition()) { // 达到条件进行显示
                 initPage(node);
+            } else if (node.uiSelf->hiddenCondition && node.uiSelf->hiddenCondition()) { // 达到条件进行隐藏
+                deinitPage(node);
             }
-            conditionRegister(node);
+            conditionRegister(node);    // 无论结果如何把条件函数注册对应事件
         }
     }
 }
@@ -240,6 +377,7 @@ void UiManager::initPage(UiManager::SubclassMeta &node) {   // 单独构造一�
         }
         node.lvSelf = node.uiSelf->Init(node.lvParent); // 初始化函数, 在UiInit里面实现lvgl初始化代码, 并且一定要返回lvgl指针
         EventManager::GetInstance().PublishEvent<pageEvent>();
+        // printf("initPage %s\n", node.selfName.c_str());
     }
 }
 
@@ -249,5 +387,6 @@ void UiManager::deinitPage(UiManager::SubclassMeta &node) { // 单独析构一�
         node.lvSelf = nullptr;
         node.lvParent = nullptr;
         EventManager::GetInstance().PublishEvent<pageEvent>();
+        // printf("deinitPage %s\n", node.selfName.c_str());
     }
 }

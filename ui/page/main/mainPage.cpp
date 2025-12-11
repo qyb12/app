@@ -17,7 +17,7 @@ MainPage::~MainPage() {
 
 void MainPage::styleInit() {
     lv_style_init(&style_bg);
-    lv_style_set_bg_color(&style_bg, lv_color_make(15, 85, 99));
+    lv_style_set_bg_color(&style_bg, lv_color_make(23, 85, 99));
     // lv_style_set_bg_img_src(&style_bg, "/home/qyb/code/app/build/bin/ui/asset/image/main/main_bg.png");
     lv_style_set_bg_img_opa(&style_bg, 255);
     lv_style_set_pad_all(&style_bg, 0);

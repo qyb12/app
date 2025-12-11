@@ -38,6 +38,7 @@ void WelcomePage::uiInit() {
     _self = lv_obj_create(_parent);
     lv_obj_set_size(_self, width, height);
     lv_obj_add_style(_self, &style_bg, LV_STATE_DEFAULT);
+    cout<<"_self "<<_self<<endl;
     
     main_btn = lv_btn_create(_self);
     lv_obj_set_size(main_btn, 200, 50);
